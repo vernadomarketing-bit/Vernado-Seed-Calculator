@@ -51,30 +51,6 @@
         : "Enter both area and rate to calculate.";
     });
 
-    document.getElementById("ask").addEventListener("click", async () => {
-      const area = parseFloat(areaEl.value || "0");
-      const rate = parseFloat(rateEl.value || "0");
-      const total = area * rate;
-
-      const userPrompt = document.getElementById("prompt").value.trim() || "Explain the result simply.";
-      const finalPrompt = `We calculated seed: area=${area} ha, rate=${rate} kg/ha, total=${total.toFixed(1)} kg. ${userPrompt}`;
-
-      const aiEl = document.getElementById("ai");
-      aiEl.style.display = "block";
-      aiEl.textContent = "Thinking...";
-
-      try {
-        const r = await fetch("/api/gemini", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: finalPrompt })
-        });
-        const data = await r.json();
-        aiEl.textContent = data.text || data.error || "No response.";
-      } catch (e) {
-        aiEl.textContent = "Request failed.";
-      }
-    });
   </script>
 </body>
 </html>
