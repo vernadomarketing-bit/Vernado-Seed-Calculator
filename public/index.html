@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Seed Calculator</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 0; padding: 16px; }
+    .card { max-width: 720px; margin: 0 auto; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; }
+    label { display:block; margin: 12px 0 6px; font-weight: 600; }
+    input, textarea { width: 100%; padding: 10px; border: 1px solid #d0d0d0; border-radius: 8px; box-sizing: border-box; }
+    button { margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid #222; background: #222; color: #fff; cursor: pointer; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .out { margin-top: 12px; white-space: pre-wrap; background:#fafafa; border:1px solid #eee; padding:12px; border-radius:10px; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="margin:0 0 8px;">Seed Calculator</h2>
+    <p style="margin:0 0 14px;">Enter area and sowing rate. Optional: ask Gemini to summarise the result.</p>
+
+    <div class="row">
+      <div>
+        <label>Area (ha)</label>
+        <input id="area" type="number" step="0.01" placeholder="e.g., 12.5" />
+      </div>
+      <div>
+        <label>Rate (kg/ha)</label>
+        <input id="rate" type="number" step="0.1" placeholder="e.g., 25" />
+      </div>
+    </div>
+
+    <button id="calc" type="button">Calculate</button>
+
+    <div id="result" class="out" style="display:none;"></div>
+
+    <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
+
+    <label>Optional Gemini prompt</label>
+    <textarea id="prompt" rows="3" placeholder="e.g., Explain this simply for a NZ dairy farm manager."></textarea>
+    <button id="ask" type="button">Ask Gemini</button>
+
+    <div id="ai" class="out" style="display:none;"></div>
+  </div>
+
+  <script>
+    const areaEl = document.getElementById("area");
+    const rateEl = document.getElementById("rate");
+    const resultEl = document.getElementById("result");
+
+    document.getElementById("calc").addEventListener("click", () => {
+      const area = parseFloat(areaEl.value || "0");
+      const rate = parseFloat(rateEl.value || "0");
+      const total = area * rate;
+
+      resultEl.style.display = "block";
+      resultEl.textContent = total > 0
+        ? `Total seed required: ${total.toFixed(1)} kg`
+        : "Enter both area and rate to calculate.";
+    });
+
+    document.getElementById("ask").addEventListener("click", async () => {
+      const area = parseFloat(areaEl.value || "0");
+      const rate = parseFloat(rateEl.value || "0");
+      const total = area * rate;
+
+      const userPrompt = document.getElementById("prompt").value.trim() || "Explain the result simply.";
+      const finalPrompt = `We calculated seed: area=${area} ha, rate=${rate} kg/ha, total=${total.toFixed(1)} kg. ${userPrompt}`;
+
+      const aiEl = document.getElementById("ai");
+      aiEl.style.display = "block";
+      aiEl.textContent = "Thinking...";
+
+      try {
+        const r = await fetch("/api/gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: finalPrompt })
+        });
+        const data = await r.json();
+        aiEl.textContent = data.text || data.error || "No response.";
+      } catch (e) {
+        aiEl.textContent = "Request failed.";
+      }
+    });
+  </script>
+</body>
+</html>
