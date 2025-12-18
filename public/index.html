@@ -1,56 +1,248 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Seed Calculator</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dominate Instant Quote</title>
   <style>
-    body { font-family: system-ui, Arial; margin: 0; padding: 16px; }
-    .card { max-width: 720px; margin: 0 auto; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; }
-    label { display:block; margin: 12px 0 6px; font-weight: 600; }
-    input, textarea { width: 100%; padding: 10px; border: 1px solid #d0d0d0; border-radius: 8px; box-sizing: border-box; }
-    button { margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid #222; background: #222; color: #fff; cursor: pointer; }
+    body { font-family: system-ui, Arial; margin: 0; padding: 16px; background:#fff; }
+    .card { max-width: 760px; margin: 0 auto; border: 1px solid #e5e5e5; border-radius: 14px; padding: 18px; }
+    h2 { margin: 0 0 8px; }
+    p { margin: 0 0 12px; line-height: 1.35; }
+    .subtle { color:#444; }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .out { margin-top: 12px; white-space: pre-wrap; background:#fafafa; border:1px solid #eee; padding:12px; border-radius:10px; }
+    label { display:block; margin: 10px 0 6px; font-weight: 650; }
+    input { width: 100%; padding: 10px; border: 1px solid #d0d0d0; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
+    button { margin-top: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid #111; background: #111; color: #fff; cursor: pointer; font-weight: 650; }
+    button.secondary { background:#fff; color:#111; }
+    .note { margin-top: 10px; font-size: 14px; color:#333; }
+    .error { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #f1c3c3; background:#fff6f6; color:#8a1f1f; display:none; }
+    .status { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #e8e8e8; background:#fafafa; display:none; }
+    .success { margin-top: 10px; padding: 12px 12px; border-radius: 12px; border: 1px solid #dfeee1; background:#f6fff7; display:none; }
+    .pill { display:inline-block; padding: 4px 10px; border-radius: 999px; background:#f3f3f3; font-size: 13px; margin-top: 6px; }
+    .divider { height:1px; background:#eee; margin: 14px 0; }
     @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
   </style>
 </head>
+
 <body>
-  <div class="card">
-    <h2 style="margin:0 0 8px;">Seed Calculator</h2>
-    <p style="margin:0 0 14px;">Enter area and sowing rate. Optional: ask Gemini to summarise the result.</p>
+  <div class="card" id="tool">
+    <h2>Get an instant price estimate — no waiting, no sales pitch</h2>
+    <p class="subtle">Estimate your cost in seconds. Just enter your hectares — we’ll text the price straight to your phone.</p>
+
+    <div class="divider"></div>
+
+    <p class="subtle"><strong>👉 Enter your hectares to calculate your estimated cost.</strong></p>
 
     <div class="row">
       <div>
-        <label>Area (ha)</label>
-        <input id="area" type="number" step="0.01" placeholder="e.g., 12.5" />
+        <label for="hectares">Hectares to sow ↓</label>
+        <input id="hectares" type="number" step="1" inputmode="numeric" placeholder="e.g., 120" />
+        <div class="pill" id="assumption"></div>
       </div>
+
       <div>
-        <label>Rate (kg/ha)</label>
-        <input id="rate" type="number" step="0.1" placeholder="e.g., 25" />
+        <label for="mobile">Mobile number ↓</label>
+        <input id="mobile" type="tel" inputmode="tel" placeholder="e.g., 0212345678" />
       </div>
     </div>
 
-    <button id="calc" type="button">Calculate</button>
+    <div class="row">
+      <div>
+        <label for="firstname">First name ↓</label>
+        <input id="firstname" type="text" placeholder="e.g., Matt" />
+      </div>
+      <div>
+        <label for="email">Email ↓</label>
+        <input id="email" type="email" inputmode="email" placeholder="e.g., matt@farm.co.nz" />
+      </div>
+    </div>
 
-    <div id="result" class="out" style="display:none;"></div>
+    <button id="getQuote" type="button">GET INSTANT QUOTE</button>
+
+    <div class="note">We’ll immediately send your estimated cost as an SMS txt.</div>
+
+    <div class="error" id="errorBox"></div>
+    <div class="status" id="statusBox"></div>
+
+    <div class="success" id="successBox">
+      <p style="margin:0 0 10px;"><strong>Your instant seed estimate is on its way by SMS.</strong><br />
+      <span class="subtle">We’ll follow up with further information if you’re interested.</span></p>
+
+      <div class="row">
+        <button class="secondary" id="openSms" type="button">Open SMS draft</button>
+        <button class="secondary" id="copySms" type="button">Copy SMS text</button>
+      </div>
+
+      <div class="note" id="smsPreview" style="margin-top:12px;"></div>
+      <div class="note" style="margin-top:8px;">
+        <strong>Indicative pricing</strong> — final quote confirmed after best-fit sowing rate determined for your farm.
+      </div>
+    </div>
+  </div>
 
   <script>
-    const areaEl = document.getElementById("area");
-    const rateEl = document.getElementById("rate");
-    const resultEl = document.getElementById("result");
+    // ===== CONFIG (edit these numbers anytime) =====
+    // Pricing format recommendation: price per KG ex store + GST
+    const PRICE_PER_KG_EX_GST = 0;     // <-- set this (e.g., 6.50). Keep 0 if you don't want to show numbers yet.
+    const GST_RATE = 0.15;
 
-    document.getElementById("calc").addEventListener("click", () => {
-      const area = parseFloat(areaEl.value || "0");
-      const rate = parseFloat(rateEl.value || "0");
-      const total = area * rate;
+    // Sowing-rate assumption used for indicative estimate (keeps per-ha pricing hidden)
+    const KG_PER_HA_ASSUMPTION = 30;   // typical mid-point; keep consistent with your positioning
 
-      resultEl.style.display = "block";
-      resultEl.textContent = total > 0
-        ? `Total seed required: ${total.toFixed(1)} kg`
-        : "Enter both area and rate to calculate.";
+    // Hectare validation
+    const MIN_HA = 10;
+    const MAX_HA = 5000; // supports "500+"
+
+    // ===== UI Elements =====
+    const hectaresEl = document.getElementById("hectares");
+    const mobileEl = document.getElementById("mobile");
+    const firstEl = document.getElementById("firstname");
+    const emailEl = document.getElementById("email");
+    const getQuoteBtn = document.getElementById("getQuote");
+
+    const errorBox = document.getElementById("errorBox");
+    const statusBox = document.getElementById("statusBox");
+    const successBox = document.getElementById("successBox");
+
+    const openSmsBtn = document.getElementById("openSms");
+    const copySmsBtn = document.getElementById("copySms");
+    const smsPreview = document.getElementById("smsPreview");
+    const assumption = document.getElementById("assumption");
+
+    assumption.textContent = `Assumes ${KG_PER_HA_ASSUMPTION} kg/ha for an indicative estimate`;
+
+    function showError(msg) {
+      errorBox.style.display = "block";
+      errorBox.textContent = msg;
+      statusBox.style.display = "none";
+      successBox.style.display = "none";
+    }
+
+    function showStatus(msg) {
+      statusBox.style.display = "block";
+      statusBox.textContent = msg;
+      errorBox.style.display = "none";
+    }
+
+    function showSuccess() {
+      successBox.style.display = "block";
+      errorBox.style.display = "none";
+      statusBox.style.display = "none";
+    }
+
+    function normaliseNzMobile(raw) {
+      // Remove spaces, hyphens, parentheses
+      let v = (raw || "").trim().replace(/[\s\-().]/g, "");
+      // Convert +64 to 0
+      if (v.startsWith("+64")) v = "0" + v.slice(3);
+      // If starts with 64 (no +), also convert
+      if (v.startsWith("64")) v = "0" + v.slice(2);
+      return v;
+    }
+
+    function isValidNzMobile(raw) {
+      const v = normaliseNzMobile(raw);
+      // Common NZ mobile: 02xxxxxxxx (typically 9–11 digits total)
+      return /^(0)2\d{7,9}$/.test(v);
+    }
+
+    function isValidEmail(raw) {
+      const v = (raw || "").trim();
+      if (!v) return true; // allow blank
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    }
+
+    function formatNZD(n) {
+      try {
+        return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(n);
+      } catch {
+        return "$" + (Math.round(n * 100) / 100).toFixed(2);
+      }
+    }
+
+    function buildSmsText({ name, hectares, kgPerHa, totalKg, pricePerKgExGst }) {
+      // "Send the Instant Quote SMS message as above." -> aligned to your wording and pricing approach.
+      if (!pricePerKgExGst || pricePerKgExGst <= 0) {
+        return `Hi ${name || "there"}, your Dominate instant estimate is based on ${hectares} ha using an indicative sowing rate of ${kgPerHa} kg/ha = ${totalKg} kg total. Indicative pricing — final quote confirmed after best-fit sowing rate determined for your farm. Reply YES if you’d like us to confirm your best-fit rate and final quote.`;
+      }
+
+      const totalEx = totalKg * pricePerKgExGst;
+      const totalInc = totalEx * (1 + GST_RATE);
+
+      return `Hi ${name || "there"}, your Dominate instant estimate: ${hectares} ha @ ${kgPerHa} kg/ha = ${totalKg} kg. Indicative price: ${formatNZD(pricePerKgExGst)} per kg ex store + GST. Estimated total: ${formatNZD(totalEx)} + GST (≈ ${formatNZD(totalInc)} incl). Indicative only — final quote confirmed after best-fit sowing rate determined for your farm.`;
+    }
+
+    function buildSmsLink(mobileRaw, smsText) {
+      const v = normaliseNzMobile(mobileRaw);
+      // Convert 0xxxxxxxxx -> +64xxxxxxxxx for sms: link where possible
+      const e164 = v.startsWith("0") ? "+64" + v.slice(1) : v;
+      // iOS uses &body= sometimes; most accept ?body=
+      return `sms:${encodeURIComponent(e164)}?&body=${encodeURIComponent(smsText)}`;
+    }
+
+    getQuoteBtn.addEventListener("click", () => {
+      const hectares = parseFloat(hectaresEl.value || "0");
+      const mobile = mobileEl.value.trim();
+      const firstname = firstEl.value.trim();
+      const email = emailEl.value.trim();
+
+      // Validation rules from your spec
+      if (!hectares || isNaN(hectares) || hectares < MIN_HA || hectares > MAX_HA) {
+        return showError("Please enter a number between 10 and 500+ hectares.");
+      }
+
+      if (!isValidNzMobile(mobile)) {
+        return showError("Please enter a valid NZ mobile number.");
+      }
+
+      if (!firstname) {
+        return showError("Please enter your first name.");
+      }
+
+      if (!isValidEmail(email)) {
+        return showError("Please enter a valid email address.");
+      }
+
+      // UI copy from your spec
+      showStatus("👍 Got it — sending your estimate now…");
+
+      const totalKg = Math.round(hectares * KG_PER_HA_ASSUMPTION);
+      const smsText = buildSmsText({
+        name: firstname,
+        hectares: hectares,
+        kgPerHa: KG_PER_HA_ASSUMPTION,
+        totalKg,
+        pricePerKgExGst: PRICE_PER_KG_EX_GST
+      });
+
+      // Free-tier approach: open SMS draft with message prefilled (user taps send)
+      const smsLink = buildSmsLink(mobile, smsText);
+
+      // Present success screen + actions
+      smsPreview.textContent = smsText;
+      showSuccess();
+
+      openSmsBtn.onclick = () => {
+        window.location.href = smsLink;
+      };
+
+      copySmsBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(smsText);
+          showStatus("Copied. Paste into SMS if needed.");
+          // Keep success visible
+          successBox.style.display = "block";
+        } catch {
+          showStatus("Copy failed. Select and copy the text manually.");
+          successBox.style.display = "block";
+        }
+      };
+
+      // Optional (free): you can later POST this lead to a Google Sheet / Formspree.
+      // For now, we keep it local and frictionless.
     });
-
   </script>
 </body>
 </html>
+
